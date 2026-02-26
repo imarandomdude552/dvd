@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DVD Arcade Mobile App</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0ff">
+<style>
+body {margin:0; overflow:hidden; background:#000; font-family:"Segoe UI", Arial, sans-serif; color:#0ff;}
+h1,h2{text-align:center;}
+button{border:none;border-radius:10px;padding:5vw 8vw;margin:3vw;font-size:5vw;background:#0ff;color:#000;}
+button:active{background:#0a0;color:#fff;}
+#hud{position:fixed;top:2vw;left:2vw;background:#111;color:#0ff;padding:2vw;border-radius:5vw;box-shadow:0 0 5vw #0ff;font-size:4vw;}
+#dvd{position:absolute;background:#111;color:#0ff;padding:3vw 6vw;border-radius:3vw;font-size:6vw;box-shadow:0 0 3vw #0ff;text-align:center;}
+.arrow, .fireball{position:absolute;font-size:8vw;cursor:pointer;user-select:none;}
+.fireball{font-size:12vw;}
+.health-bar{position:fixed;height:4vw;border-radius:2vw;background:#0f0;top:1vw;left:1vw;}
+</style>
+</head>
+<body>
+
+<div id="menu">
+<h1>🎬 DVD ARCADE MOBILE 🎬</h1>
+<button id="startBtn">Start Game</button>
+<button id="creditsBtn">Credits</button>
+</div>
+
+<div id="hud"></div>
+
+<script>
+let score=0, playerHP=100, bossHP=200;
+let dvdSpeedX=3, dvdSpeedY=3;
+let dvd,hud,arena;
+let touchControl=false;
+let gameState="menu";
+
+const startBtn=document.getElementById("startBtn");
+const creditsBtn=document.getElementById("creditsBtn");
+const menu=document.getElementById("menu");
+
+startBtn.onclick=startGame;
+creditsBtn.onclick=()=>alert("Created by You 😎\nMobile Edition by IsraelGPT 2026\nFull App Experience");
+
+// ===== HUD =====
+function createHUD(){
+    hud=document.getElementById("hud");
+    updateHUD();
+}
+function updateHUD(){
+    if(gameState==="playing"){
+        hud.innerHTML=`Score: ${score}<br>Player HP: ${playerHP}<br>Speed: ${Math.abs(dvdSpeedX).toFixed(1)}${touchControl?"<br>Touch Control!":""}`;
+    } else if(gameState==="boss"){
+        hud.innerHTML=`Boss HP: ${bossHP}<br>Player HP: ${playerHP}`;
+    }
+}
+
+// ===== START GAME =====
+function startGame(){
+    gameState="playing"; menu.style.display="none"; createHUD();
+    dvd=document.createElement("div"); dvd.id="dvd"; dvd.innerText="DVD"; document.body.appendChild(dvd);
+    let x=window.innerWidth/4, y=window.innerHeight/4;
+
+    function move(){
+        if(gameState!=="playing") return;
+        let w=window.innerWidth-dvd.offsetWidth, h=window.innerHeight-dvd.offsetHeight;
+
+        if(touchControl){
+            // DVD follows touch
+        } else {
+            x+=dvdSpeedX; y+=dvdSpeedY;
+            let hit=false;
+            if(x<=0||x>=w){dvdSpeedX*=-1; hit=true;}
+            if(y<=0||y>=h){dvdSpeedY*=-1; hit=true;}
+            if(hit){
+                score++;
+                dvdSpeedX*=1.05; dvdSpeedY*=1.05;
+                if(Math.random()<0.15) enableTouchControl(10);
+            }
+            dvd.style.left=x+"px"; dvd.style.top=y+"px";
+        }
+
+        updateHUD();
+        if(score>=200){startBoss(); return;}
+        requestAnimationFrame(move);
+    }
+    move();
+}
+
+// ===== TOUCH CONTROL =====
+function enableTouchControl(seconds){
+    touchControl=true;
+    function followTouch(e){
+        if(e.touches && e.touches.length>0){
+            let tx=e.touches[0].clientX-dvd.offsetWidth/2;
+            let ty=e.touches[0].clientY-dvd.offsetHeight/2;
+            dvd.style.left=Math.max(0, Math.min(window.innerWidth-dvd.offsetWidth, tx))+"px";
+            dvd.style.top=Math.max(0, Math.min(window.innerHeight-dvd.offsetHeight, ty))+"px";
+        }
+    }
+    document.body.addEventListener("touchmove", followTouch);
+    setTimeout(()=>{touchControl=false; document.body.removeEventListener("touchmove", followTouch);}, seconds*1000);
+}
+
+// ===== BOSS BATTLE =====
+function startBoss(){
+    gameState="boss"; document.body.innerHTML=""; createHUD();
+    arena=document.createElement("div"); arena.id="arena"; arena.style.position="absolute"; arena.style.top="10vw"; arena.style.width="100%"; arena.style.textAlign="center"; document.body.appendChild(arena);
+
+    // Health bar
+    const bossHealthBar=document.createElement("div");
+    bossHealthBar.className="health-bar";
+    bossHealthBar.style.width="100%";
+    bossHealthBar.style.top="1vw";
+    bossHealthBar.style.background="#f00";
+    document.body.appendChild(bossHealthBar);
+
+    function updateBars(){
+        bossHealthBar.style.width=(bossHP/200*100)+"%";
+    }
+
+    function spawnArrow(){
+        let arrow=document.createElement("div"); arrow.className="arrow"; arrow.innerText="➤";
+        arrow.style.top=(Math.random()*window.innerHeight*0.4+10)+"px";
+        arrow.style.left=(Math.random()*window.innerWidth*0.4+10)+"px";
+        document.body.appendChild(arrow);
+        arrow.ontouchstart=function(){
+            bossHP-=10; arrow.remove();
+            updateBars();
+            if(bossHP<=0){arena.innerHTML="<h1 style='color:#0f0;'>YOU WIN 🎉</h1>"; gameState="end";}
+            else updateHUD();
+        }
+    }
+
+    function bossFireball(){
+        let fire=document.createElement("div"); fire.className="fireball"; fire.innerText="🔥";
+        fire.style.left="45%"; fire.style.top="0"; fire.style.transition="top 1s linear"; document.body.appendChild(fire);
+        setTimeout(()=>{fire.style.top=window.innerHeight-12*window.innerHeight/100+"px";},50);
+        setTimeout(()=>{playerHP-=20; updateHUD(); fire.remove(); if(playerHP<=0){arena.innerHTML="<h1 style='color:#f00;'>GAME OVER</h1>"; gameState="end";}},1000);
+    }
+
+    let bossInterval=setInterval(()=>{ if(gameState!=="boss"){clearInterval(bossInterval);return;} spawnArrow(); bossFireball(); },2000);
+}
+
+// ===== SERVICE WORKER =====
+if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').then(()=>console.log('SW registered'));
+}
+</script>
+
+</body>
+</html>
